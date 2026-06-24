@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MCP_VERSION="0.1.0"
+MCP_API_BASE="${MCPLABS_API_BASE:-https://mcplabs.pro/r/api.php}"
+MCP_CONFIG_DIR="${HOME}/.mcplabs"
+MCP_CONFIG_FILE="${MCP_CONFIG_DIR}/config"
+
+mcp__ensure_config_dir() {
+  mkdir -p "${MCP_CONFIG_DIR}"
+  chmod 700 "${MCP_CONFIG_DIR}" 2>/dev/null || true
+}
+
+mcp__read_api_key() {
+  if [[ -f "${MCP_CONFIG_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${MCP_CONFIG_FILE}"
+    printf '%s' "${MCPLABS_API_KEY:-}"
+  fi
+}
+
+mcp__save_api_key() {
+  local key="$1"
+  mcp__ensure_config_dir
+  cat > "${MCP_CONFIG_FILE}" <<EOF
+# MCPLabs CLI configuration — keep this file private
+MCPLABS_API_KEY="${key}"
+MCPLABS_API_BASE="${MCP_API_BASE}"
+EOF
+  chmod 600 "${MCP_CONFIG_FILE}" 2>/dev/null || true
+}
+
+mcp__prompt_api_key() {
+  local key
+  printf 'Enter your MCPLabs API key: ' >&2
+  read -r key
+  key="$(printf '%s' "${key}" | tr -d '[:space:]')"
+  if [[ -z "${key}" ]]; then
+    echo "Error: API key is required." >&2
+    exit 1
+  fi
+  if [[ "${key}" != mcplabs_hash_* ]]; then
+    echo "Warning: key should start with mcplabs_hash_" >&2
+  fi
+  mcp__save_api_key "${key}"
+  printf '%s' "${key}"
+}
+
+mcp__api_request() {
+  local method="$1"
+  local path="$2"
+  local body="${3:-}"
+  local key
+  key="$(mcp__read_api_key)"
+  if [[ -z "${key}" ]]; then
+    key="$(mcp__prompt_api_key)"
+  fi
+
+  local url="${MCP_API_BASE}${path}"
+  if [[ -n "${body}" ]]; then
+    curl -fsSL -X "${method}" \
+      -H "Authorization: Bearer ${key}" \
+      -H "Content-Type: application/json" \
+      -H "Accept: application/json" \
+      -d "${body}" \
+      "${url}"
+  else
+    curl -fsSL -X "${method}" \
+      -H "Authorization: Bearer ${key}" \
+      -H "Accept: application/json" \
+      "${url}"
+  fi
+}
+
+cmd_start() {
+  local key
+  key="$(mcp__read_api_key)"
+  if [[ -z "${key}" ]]; then
+    key="$(mcp__prompt_api_key)"
+  fi
+  echo "Testing connection to MCPLabs API…"
+  mcp__api_request GET "/v1/me" | python3 -m json.tool 2>/dev/null || mcp__api_request GET "/v1/me"
+  echo
+  echo "Configured. API key stored in ${MCP_CONFIG_FILE}"
+}
+
+cmd_login() {
+  mcp__prompt_api_key >/dev/null
+  echo "API key saved to ${MCP_CONFIG_FILE}"
+}
+
+cmd_me() {
+  mcp__api_request GET "/v1/me" | python3 -m json.tool 2>/dev/null || mcp__api_request GET "/v1/me"
+}
+
+cmd_directory() {
+  mcp__api_request GET "/v1/directory" | python3 -m json.tool 2>/dev/null || mcp__api_request GET "/v1/directory"
+}
+
+cmd_pricing() {
+  mcp__api_request GET "/v1/pricing" | python3 -m json.tool 2>/dev/null || mcp__api_request GET "/v1/pricing"
+}
+
+cmd_balance() {
+  mcp__api_request GET "/v1/balance" | python3 -m json.tool 2>/dev/null || mcp__api_request GET "/v1/balance"
+}
+
+cmd_submit() {
+  local name website github x_url category description
+  printf 'Project name: ' >&2; read -r name
+  printf 'Website URL (optional): ' >&2; read -r website
+  printf 'GitHub URL (optional): ' >&2; read -r github
+  printf 'X URL (optional): ' >&2; read -r x_url
+  printf 'Category (default MCP Tool): ' >&2; read -r category
+  printf 'Description: ' >&2; read -r description
+  category="${category:-MCP Tool}"
+  local payload
+  payload=$(cat <<EOF
+{"name":"${name}","website":"${website}","github":"${github}","x_url":"${x_url}","category":"${category}","description":"${description}"}
+EOF
+)
+  mcp__api_request POST "/v1/submit" "${payload}" | python3 -m json.tool 2>/dev/null || mcp__api_request POST "/v1/submit" "${payload}"
+}
+
+cmd_help() {
+  cat <<EOF
+mcplabs v${MCP_VERSION} — MCPLabs CLI
+
+Usage:
+  mcplabs start       Configure API key and test /v1/me
+  mcplabs login       Update stored API key
+  mcplabs me          Account profile
+  mcplabs directory   List directory projects
+  mcplabs pricing     Command pricing table
+  mcplabs submit      Submit a project (interactive)
+  mcplabs balance     Cached USDC balance
+  mcplabs help        Show this help
+
+Get your API key: https://mcplabs.pro/dashboard
+Docs: https://mcplabs.pro/docs
+EOF
+}
+
+main() {
+  local cmd="${1:-help}"
+  case "${cmd}" in
+    start) cmd_start ;;
+    login) cmd_login ;;
+    me) cmd_me ;;
+    directory) cmd_directory ;;
+    pricing) cmd_pricing ;;
+    submit) cmd_submit ;;
+    balance) cmd_balance ;;
+    help|-h|--help) cmd_help ;;
+    *) echo "Unknown command: ${cmd}" >&2; cmd_help; exit 1 ;;
+  esac
+}
+
+main "$@"
