@@ -1,4 +1,4 @@
-![MCPLabs.pro — Base MCP Discovery Hub](../banner.jpg)
+![MCPLabs.pro — Base MCP Discovery Hub](banner.jpg)
 
 # MCPLabs — CLI & GitHub docs
 
