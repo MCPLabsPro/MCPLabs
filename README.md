@@ -8,6 +8,18 @@ This folder ships with the main [MCPLabsPro/MCPLabs](https://github.com/MCPLabsP
 
 > MCPLabs is an independent community-built discovery and tooling layer for the Base MCP ecosystem. It is not affiliated with, endorsed by, or operated by Base.
 
+## $MCPLABS
+
+<p align="left">
+  <img src="logo.jpg" alt="MCPLabs logo" width="120">
+</p>
+
+**Contract (Base):** `0x4e50b4a6c15dd5f773c530464f6726809ff4aba3`
+
+[Tokenomics](https://mcplabs.pro/tokenomics) · [Dexscreener](https://dexscreener.com/base/0x4e50b4a6c15dd5f773c530464f6726809ff4aba3) · [Basescan](https://basescan.org/token/0x4e50b4a6c15dd5f773c530464f6726809ff4aba3)
+
+Full token details in the [repository README](../README.md#mcplabs-on-base).
+
 ## CLI install
 
 One-line (recommended):
